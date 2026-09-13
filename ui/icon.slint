@@ -1,0 +1,196 @@
+// Vector icons. Most are drawn with axis-aligned rectangles (portable across
+// fonts and platforms); the more complex shapes (nut/gear, eye, sliders) use
+// SVG `Path` commands, which Slint scales to fit the `size` property.
+export component Icon inherits Rectangle {
+    in property <int> kind; // 0 nut (settings), 1 clock, 2 tag, 3 lock, 4 link,
+                            // 5 robot, 6 hash, 7 key, 8 folder, 9 globe,
+                            // 10 chevron-down, 11 save, 12 ban (x in a
+                            // circle), 13 info, 14 chevron-up,
+                            // 15 eye, 16 eye-off, 17 sliders
+    in property <length> size: 16px;
+    width: size;
+    height: size;
+    background: transparent;
+
+    // Scale factor from the 16x16 base canvas.
+    property <float> s: size / 16px;
+
+    // ------------------------------------------------ 0: nut (settings) --
+    // Hex nut: filled hexagon with a round hole (evenodd keeps the hole
+    // transparent). Drawn on a 24x24 canvas with ~1px margin so it never
+    // touches the element edges and never looks clipped.
+    if root.kind == 0: Path {
+        width: size;
+        height: size;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        fill: #cccccc;
+        fill-rule: evenodd;
+        commands: "M 23 12 L 17.5 2.5 L 6.5 2.5 L 1 12 L 6.5 21.5 L 17.5 21.5 Z M 17 12 A 5 5 0 1 0 7 12 A 5 5 0 1 0 17 12 Z";
+    }
+
+    // ------------------------------------------------ 1: clock -----------
+    if root.kind == 1: Rectangle {
+        x: 1.5px * s; y: 1.5px * s; width: 13px * s; height: 13px * s;
+        border-radius: 6.5px * s; background: transparent;
+        border-width: 1.8px * s; border-color: #cccccc;
+    }
+    if root.kind == 1: Rectangle { x: 7.1px * s; y: 4px * s; width: 1.8px * s; height: 5px * s; background: #cccccc; }
+    if root.kind == 1: Rectangle { x: 7.1px * s; y: 7.1px * s; width: 4.5px * s; height: 1.8px * s; background: #cccccc; }
+
+    // ------------------------------------------------ 2: tag -------------
+    if root.kind == 2: Rectangle { x: 3.5px * s; y: 3.5px * s; width: 9px * s; height: 9px * s; border-radius: 2px * s; background: #cccccc; }
+    if root.kind == 2: Rectangle { x: 5.4px * s; y: 5.4px * s; width: 1.8px * s; height: 1.8px * s; border-radius: 0.9px * s; background: #1e1e1e; }
+
+    // ------------------------------------------------ 3: lock ------------
+    if root.kind == 3: Rectangle {
+        x: 4.75px * s; y: 1.5px * s; width: 6.5px * s; height: 5.5px * s;
+        border-radius: 2.5px * s; background: transparent;
+        border-width: 2px * s; border-color: #cccccc;
+    }
+    if root.kind == 3: Rectangle { x: 2.75px * s; y: 6.5px * s; width: 10.5px * s; height: 7px * s; border-radius: 1.5px * s; background: #cccccc; }
+    if root.kind == 3: Rectangle { x: 7px * s; y: 8.5px * s; width: 2px * s; height: 2.5px * s; border-radius: 1px * s; background: #1e1e1e; }
+
+    // ------------------------------------------------ 4: link ------------
+    if root.kind == 4: Rectangle { x: 1.5px * s; y: 5.5px * s; width: 8.5px * s; height: 4px * s; border-radius: 2px * s; background: #cccccc; }
+    if root.kind == 4: Rectangle { x: 6px * s; y: 6.5px * s; width: 8.5px * s; height: 4px * s; border-radius: 2px * s; background: #cccccc; }
+
+    // ------------------------------------------------ 5: robot -----------
+    if root.kind == 5: Rectangle { x: 7.4px * s; y: 1px * s; width: 1.2px * s; height: 3px * s; background: #cccccc; }
+    if root.kind == 5: Rectangle { x: 2.5px * s; y: 4px * s; width: 11px * s; height: 8.5px * s; border-radius: 2px * s; background: #cccccc; }
+    if root.kind == 5: Rectangle { x: 4.75px * s; y: 6.5px * s; width: 2px * s; height: 2px * s; border-radius: 0.5px * s; background: #1e1e1e; }
+    if root.kind == 5: Rectangle { x: 9.25px * s; y: 6.5px * s; width: 2px * s; height: 2px * s; border-radius: 0.5px * s; background: #1e1e1e; }
+
+    // ------------------------------------------------ 6: hash ------------
+    if root.kind == 6: Rectangle { x: 2.5px * s; y: 5px * s; width: 11px * s; height: 1.8px * s; background: #cccccc; }
+    if root.kind == 6: Rectangle { x: 2.5px * s; y: 9.2px * s; width: 11px * s; height: 1.8px * s; background: #cccccc; }
+    if root.kind == 6: Rectangle { x: 5.5px * s; y: 2.5px * s; width: 1.8px * s; height: 11px * s; background: #cccccc; }
+    if root.kind == 6: Rectangle { x: 8.7px * s; y: 2.5px * s; width: 1.8px * s; height: 11px * s; background: #cccccc; }
+
+    // ------------------------------------------------ 7: key -------------
+    if root.kind == 7: Rectangle {
+        x: 2px * s; y: 2px * s; width: 6.5px * s; height: 6.5px * s;
+        border-radius: 3.25px * s; background: transparent;
+        border-width: 2px * s; border-color: #cccccc;
+    }
+    if root.kind == 7: Rectangle { x: 8px * s; y: 4.3px * s; width: 6px * s; height: 1.9px * s; background: #cccccc; }
+    if root.kind == 7: Rectangle { x: 10.5px * s; y: 6.2px * s; width: 1.9px * s; height: 2.5px * s; background: #cccccc; }
+
+    // ------------------------------------------------ 8: folder ----------
+    if root.kind == 8: Rectangle { x: 2px * s; y: 3px * s; width: 6px * s; height: 2.5px * s; border-radius: 1px * s; background: #cccccc; }
+    if root.kind == 8: Rectangle { x: 2px * s; y: 5px * s; width: 12px * s; height: 7.5px * s; border-radius: 1px * s; background: #cccccc; }
+
+    // ------------------------------------------------ 9: globe -----------
+    if root.kind == 9: Rectangle {
+        x: 1.5px * s; y: 1.5px * s; width: 13px * s; height: 13px * s;
+        border-radius: 6.5px * s; background: transparent;
+        border-width: 1.5px * s; border-color: #cccccc;
+    }
+    if root.kind == 9: Rectangle { x: 7.3px * s; y: 1.5px * s; width: 1.4px * s; height: 13px * s; background: #cccccc; }
+    if root.kind == 9: Rectangle { x: 1.5px * s; y: 7.3px * s; width: 13px * s; height: 1.4px * s; background: #cccccc; }
+
+    // ------------------------------------- 10: chevron down (stairs) -----
+    if root.kind == 10: Rectangle { x: 3px * s; y: 4.5px * s; width: 10px * s; height: 2px * s; background: #cccccc; }
+    if root.kind == 10: Rectangle { x: 5px * s; y: 6.5px * s; width: 6px * s; height: 2px * s; background: #cccccc; }
+    if root.kind == 10: Rectangle { x: 7px * s; y: 8.5px * s; width: 2px * s; height: 2px * s; background: #cccccc; }
+
+    // ------------------------------------------------ 11: save (floppy) --
+    if root.kind == 11: Rectangle { x: 2.5px * s; y: 2.5px * s; width: 11px * s; height: 11px * s; border-radius: 1.5px * s; background: #cccccc; }
+    if root.kind == 11: Rectangle { x: 9px * s; y: 3.5px * s; width: 3px * s; height: 3.5px * s; background: #1e1e1e; }
+    if root.kind == 11: Rectangle { x: 5px * s; y: 9px * s; width: 6px * s; height: 3.5px * s; background: #1e1e1e; }
+
+    // -------------------------------------- 12: ban (x inside circle) ----
+    if root.kind == 12: Rectangle {
+        x: 1.5px * s; y: 1.5px * s; width: 13px * s; height: 13px * s;
+        border-radius: 6.5px * s; background: transparent;
+        border-width: 1.8px * s; border-color: #ff8888;
+    }
+    if root.kind == 12: Rectangle { x: 4.6px * s; y: 4.6px * s; width: 6.8px * s; height: 1.8px * s; border-radius: 0.9px * s; background: #ff8888; }
+    if root.kind == 12: Rectangle { x: 4.6px * s; y: 9.6px * s; width: 6.8px * s; height: 1.8px * s; border-radius: 0.9px * s; background: #ff8888; }
+
+    // -------------------------------------------- 13: info (accent) ------
+    if root.kind == 13: Rectangle { x: 7px * s; y: 3px * s; width: 2px * s; height: 2.5px * s; border-radius: 1px * s; background: #ffaa00; }
+    if root.kind == 13: Rectangle { x: 7px * s; y: 7px * s; width: 2px * s; height: 6px * s; border-radius: 1px * s; background: #ffaa00; }
+
+    // --------------------------------------- 14: chevron up (stairs) -----
+    if root.kind == 14: Rectangle { x: 3px * s; y: 9.5px * s; width: 10px * s; height: 2px * s; background: #cccccc; }
+    if root.kind == 14: Rectangle { x: 5px * s; y: 7.5px * s; width: 6px * s; height: 2px * s; background: #cccccc; }
+    if root.kind == 14: Rectangle { x: 7px * s; y: 5.5px * s; width: 2px * s; height: 2px * s; background: #cccccc; }
+
+    // --------------------------------------- 15: eye (24x24 canvas) ------
+    // Almond eye outline with a pupil hole, plus a solid pupil dot. The shape
+    // spans 1.6..22.4 horizontally and 5..19 vertically, leaving margin so the
+    // anti-aliased edges are never clipped.
+    if root.kind == 15: Path {
+        width: size;
+        height: size;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        fill: #cccccc;
+        fill-rule: evenodd;
+        commands: "M 12 5 C 7.5 5 3.4 8 1.6 12 C 3.4 16 7.5 19 12 19 C 16.5 19 20.6 16 22.4 12 C 20.6 8 16.5 5 12 5 Z M 12 15.4 A 3.4 3.4 0 1 0 12 8.6 A 3.4 3.4 0 1 0 12 15.4 Z";
+    }
+    if root.kind == 15: Path {
+        width: size;
+        height: size;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        fill: #cccccc;
+        commands: "M 12 14.1 A 2.1 2.1 0 1 0 12 9.9 A 2.1 2.1 0 1 0 12 14.1 Z";
+    }
+
+    // ------------------------------------ 16: eye-off (24x24 canvas) -----
+    // Same eye outline crossed out by a diagonal slash.
+    if root.kind == 16: Path {
+        width: size;
+        height: size;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        fill: #cccccc;
+        fill-rule: evenodd;
+        commands: "M 12 5 C 7.5 5 3.4 8 1.6 12 C 3.4 16 7.5 19 12 19 C 16.5 19 20.6 16 22.4 12 C 20.6 8 16.5 5 12 5 Z M 12 15.4 A 3.4 3.4 0 1 0 12 8.6 A 3.4 3.4 0 1 0 12 15.4 Z";
+    }
+    if root.kind == 16: Path {
+        width: size;
+        height: size;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        fill: #cccccc;
+        commands: "M 2.05 3.39 L 3.95 1.61 L 21.95 20.61 L 20.05 22.39 Z";
+    }
+
+    // ------------------------------------ 17: sliders (24x24 canvas) -----
+    // Three horizontal lines with offset knobs — the classic "settings"
+    // alternative glyph.
+    if root.kind == 17: Path {
+        width: size;
+        height: size;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        stroke: #cccccc;
+        stroke-width: 2px;
+        commands: "M 3 6 L 21 6 M 3 12 L 21 12 M 3 18 L 21 18";
+    }
+    if root.kind == 17: Path {
+        width: size;
+        height: size;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        fill: #cccccc;
+        commands: "M 7.5 3.6 A 2.4 2.4 0 1 0 7.5 8.4 A 2.4 2.4 0 1 0 7.5 3.6 Z M 15.5 9.6 A 2.4 2.4 0 1 0 15.5 14.4 A 2.4 2.4 0 1 0 15.5 9.6 Z M 10 15.6 A 2.4 2.4 0 1 0 10 20.4 A 2.4 2.4 0 1 0 10 20.4 Z";
+    }
+}

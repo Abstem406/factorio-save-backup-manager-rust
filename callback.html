@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Authorization Successful</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: "Segoe UI", Arial, sans-serif;
+    color: #ffffff;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 100vh;
+    background-color: #1e1e1e;
+    background-image: url("__CHAD_BG_DATAURI__");
+    background-repeat: no-repeat;
+    background-position: center bottom;
+    background-size: cover;
+  }
+
+  .wrapper {
+    margin-top: 700px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .card {
+    background: #2a2a2a;
+    border: 2px solid #ffaa00;
+    border-radius: 8px;
+    padding: 32px 40px;
+    max-width: 520px;
+    box-shadow: 0 0 24px rgba(255, 170, 0, 0.25);
+  }
+
+  h1 {
+    color: #ffaa00;
+    font-size: 22px;
+    margin: 0 0 12px 0;
+  }
+
+  p {
+    color: #dddddd;
+    font-size: 14px;
+    margin: 0 0 24px 0;
+    line-height: 1.5;
+  }
+
+  .close-note {
+    color: #888888;
+    font-size: 12px;
+    margin-top: 18px;
+  }
+</style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <h1>Authorization Successful</h1>
+      <p>You can close this window and return to the application.</p>
+      <div class="close-note">The Google Drive authorization has been completed.</div>
+    </div>
+  </div>
+  <script>
+    setTimeout(function () { window.close(); }, 4000);
+  </script>
+</body>
+</html>

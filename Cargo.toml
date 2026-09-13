@@ -1,0 +1,26 @@
+[package]
+name = "factorio-save-backup-manager-rust"
+version = "0.2.0"
+edition = "2024"
+
+[build-dependencies]
+slint-build = "1.17.1"
+
+[[bin]]
+name = "factorio-save-backup-manager-rust"
+path = "src/main.rs"
+
+[dependencies]
+slint = "1.17.1"
+md5 = "0.7"
+dirs = "5.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = "0.4"
+copypasta = "0.10"
+base64 = { version = "0.23.1", features = ["alloc"] }
+
+[dependencies.reqwest]
+version = "0.11"
+default-features = false
+features = ["blocking", "json", "multipart", "stream", "native-tls"]

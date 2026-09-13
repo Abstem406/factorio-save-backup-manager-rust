@@ -1,0 +1,178 @@
+import { Icon } from "icon.slint";
+
+// Tooltip bubble rendered above the hovered element. Extracted so both
+// TooltipArea (wraps anything) and labels/buttons can show identical bubbles.
+component TooltipBubble inherits Rectangle {
+    in property <string> text;
+    x: 14px;
+    y: -self.height - 5px;
+    width: min(320px, tb.preferred-width + 14px);
+    height: tb.preferred-height + 10px;
+    background: #101010f2;
+    border-width: 1px;
+    border-color: #777777;
+    border-radius: 4px;
+
+    tb := Text {
+        x: 7px;
+        y: 5px;
+        width: parent.width - 14px;
+        text: root.text;
+        color: #eeeeee;
+        font-size: 11px;
+        wrap: word-wrap;
+    }
+}
+
+// Wraps arbitrary content and shows a tooltip bubble above it on hover.
+export component TooltipArea inherits Rectangle {
+    in property <string> tooltip;
+    background: transparent;
+
+    ta := TouchArea { }
+
+    @children
+
+    if ta.has-hover && root.tooltip != "": TooltipBubble {
+        text: root.tooltip;
+    }
+}
+
+// A field label made of a vector icon + text. The whole row is hoverable, so
+// the tooltip fires with the cursor over the icon OR over the text.
+// `has-eye` shows an eye/eye-off toggle at the right end (for secret fields);
+// clicking it fires `toggle-reveal`.
+export component FieldLabel inherits Rectangle {
+    in property <int> icon-kind;
+    in property <string> text;
+    in property <string> tooltip;
+    in property <length> icon-size: 16px;
+    in property <bool> has-eye: false;
+    in property <bool> revealed: false;
+    callback toggle-reveal();
+    height: icon-size;
+
+    fl_touch := TouchArea { }
+
+    HorizontalLayout {
+        spacing: 6px;
+
+        Icon {
+            kind: root.icon-kind;
+            size: root.icon-size;
+        }
+        Text {
+            text: root.text;
+            color: #bbbbbb;
+            font-size: 12px;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        // Right-aligned eye toggle, rendered only when requested. The icon is
+        // drawn 2px larger and centered vertically so its edges have a pixel
+        // or two of clearance inside the label row.
+        if root.has-eye: Rectangle {
+            horizontal-stretch: 1;
+            min-width: 0px;
+            eye := TouchArea {
+                width: root.icon-size + 4px;
+                x: parent.width - self.width;
+                clicked => { root.toggle-reveal(); }
+            }
+            Icon {
+                kind: root.revealed ? 15 : 16;
+                size: root.icon-size + 2px;
+                x: parent.width - root.icon-size - 4px;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+    }
+
+    if fl_touch.has-hover && root.tooltip != "": TooltipBubble {
+        text: root.tooltip;
+    }
+}
+
+// Titled panel with an optional vector icon in its header.
+export component Panel inherits Rectangle {
+    in property <string> title;
+    in property <int> icon-kind: -1; // -1 = no icon
+    background: #2a2a2a;
+    border-width: 1px;
+    border-color: #3d3d3d;
+
+    if root.icon-kind >= 0: Icon {
+        kind: root.icon-kind;
+        size: 20px;
+        x: 12px;
+        y: 5px;
+    }
+
+    Text {
+        x: root.icon-kind >= 0 ? 38px : 12px;
+        y: 6px;
+        text: root.title;
+        color: #ffffff;
+        font-size: 14px;
+        font-weight: 700;
+    }
+}
+
+// Button with optional icon + tooltip. `compact` shrinks it for the dense
+// settings dialog (smaller min-width/height and font).
+export component ActionButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> danger: false;
+    in property <int> icon-kind: -1; // -1 = no icon
+    in property <string> tooltip;
+    in property <bool> compact: false;
+
+    callback clicked();
+
+    min-height: root.compact ? 56px : 42px;
+    // Cap the height: layouts must not stretch the buttons vertically.
+    max-height: root.compact ? 60px : 48px;
+    vertical-stretch: 0;
+    border-radius: 4px;
+    background: touch.has-hover ? (danger ? #c0392b : #4a90d9) : (danger ? #8e2f24 : #3a3a3a);
+    border-width: 1px;
+    border-color: touch.has-hover ? (danger ? #e74c3c : #6db3f2) : #555555;
+    // Every button in a row shares the available horizontal space equally
+    // (horizontal-stretch: 1 on siblings distributes free width uniformly),
+    // so the row behaves like a symmetric grid of buttons. The window stays
+    // resizable in both axes.
+    horizontal-stretch: 1;
+    min-width: 0px;
+
+    property <bool> has-icon: root.icon-kind >= 0;
+    property <length> icon-w: root.has-icon ? (root.compact ? 20px : 24px) : 0px;
+    property <length> left-inset: root.has-icon ? (root.compact ? 8px : 10px) : 0px;
+    property <length> gap: root.has-icon ? 7px : 0px;
+
+    // Icon declared BEFORE the TouchArea so the button keeps every click.
+    btn_icon := Icon {
+        kind: root.icon-kind;
+        size: root.icon-w;
+        x: root.left-inset;
+        y: (parent.height - icon-w) / 2;
+    }
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    Text {
+        x: root.left-inset + icon-w + gap;
+        width: parent.width - (root.left-inset + icon-w + gap) - 6px;
+        text: root.label;
+        color: #ffffff;
+        font-size: root.compact ? 12px : 13px;
+        horizontal-alignment: left;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+
+    if touch.has-hover && root.tooltip != "": TooltipBubble {
+        text: root.tooltip;
+    }
+}

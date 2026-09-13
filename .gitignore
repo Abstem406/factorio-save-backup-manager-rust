@@ -1,0 +1,11 @@
+# Rust build artifacts
+/target
+
+# Runtime secrets & local settings (stored next to the executable)
+credentials.json
+gdrive-token.json
+config.json
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db

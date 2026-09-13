@@ -1,0 +1,100 @@
+// I18n global: holds every UI-facing string. Texts are *fed from Rust*, which
+// loads them from the i18n/<lang>.json catalogs (see src/i18n.rs). Keeping the
+// strings out of .slint files lets translators edit plain JSON files.
+export global I18n {
+    // 0 = English, 1 = Spanish (mirrors the persisted config).
+    in-out property <int> lang-index: 0;
+
+    // -------------------------------------------------------------- app ----
+    in-out property <string> app-title;
+    in-out property <string> status-panel;
+    in-out property <string> tools-panel;
+    in-out property <string> console-panel;
+    in-out property <string> working;
+
+    in-out property <string> service;
+    in-out property <string> interval-label;
+    in-out property <string> mins;
+    in-out property <string> save-path;
+    in-out property <string> last-link;
+    in-out property <string> link-date;
+    in-out property <string> no-backups;
+    in-out property <string> copy;
+    in-out property <string> next-check;
+
+    in-out property <string> force-check;
+    in-out property <string> manual-upload;
+    in-out property <string> sync-cloud;
+    in-out property <string> download-drive;
+    in-out property <string> download-discord;
+    in-out property <string> test-save;
+    in-out property <string> settings;
+    in-out property <string> footer;
+
+    // ------------------------------------------------------------ picker ---
+    in-out property <string> picker-cloud-title;
+    in-out property <string> picker-local-title;
+    in-out property <string> cancel;
+    in-out property <string> download-b;
+    in-out property <string> upload-b;
+
+    // ---------------------------------------------------------- settings ---
+    in-out property <string> settings-title;
+    in-out property <string> general-sec;
+    in-out property <string> discord-sec;
+    in-out property <string> gdrive-sec;
+    in-out property <string> lang-label;
+    in-out property <string> check-interval;
+    in-out property <string> backup-prefix;
+    in-out property <string> prefix-ph;
+    in-out property <string> obfuscate-cb;
+    in-out property <string> webhook;
+    in-out property <string> bot-token;
+    in-out property <string> token-ph;
+    in-out property <string> channel-id;
+    in-out property <string> channel-ph;
+    in-out property <string> creds-path;
+    in-out property <string> folder-id;
+    in-out property <string> authorize;
+    in-out property <string> authorize-wait;
+    in-out property <string> listing-cloud;
+
+    // Google Drive credential state boxes
+    in-out property <string> gd-no-creds-title;
+    in-out property <string> gd-no-creds-body;
+    in-out property <string> gd-creds-title;
+    in-out property <string> gd-creds-body;
+    in-out property <string> gd-ready-title;
+    in-out property <string> gd-ready-body;
+
+    in-out property <string> save-b;
+
+    // ---------------------------------------------------------- tooltips ---
+    in-out property <string> tip-copy;
+    in-out property <string> tip-force-check;
+    in-out property <string> tip-manual-upload;
+    in-out property <string> tip-sync-cloud;
+    in-out property <string> tip-download-drive;
+    in-out property <string> tip-download-discord;
+    in-out property <string> tip-test-save;
+    in-out property <string> tip-settings;
+    in-out property <string> tip-next-check;
+
+    in-out property <string> tip-interval;
+    in-out property <string> tip-prefix;
+    in-out property <string> tip-language;
+    in-out property <string> tip-obfuscate;
+    in-out property <string> tip-webhook;
+    in-out property <string> tip-channel;
+    in-out property <string> tip-bot;
+    in-out property <string> tip-creds;
+    in-out property <string> tip-folder;
+    in-out property <string> tip-authorize;
+    in-out property <string> tip-save;
+    in-out property <string> tip-cancel;
+
+    // Language names are NOT translated (always shown in their own language).
+    // Set here as a default so Rust never needs to replace the model at
+    // runtime (swapping the model could reset the ComboBox selection).
+    in-out property <[string]> lang-choices: ["English", "Español"];
+}

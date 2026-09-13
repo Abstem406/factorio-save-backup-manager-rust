@@ -1,0 +1,33 @@
+// TooltipArea: wraps arbitrary content and shows a dark tooltip bubble above
+// it while the cursor hovers the area. The bubble is rendered *above* the
+// element on purpose: earlier siblings paint below it, so it is never covered
+// by neighbouring rows. It is only clipped if content exceeds the window.
+export component TooltipArea inherits Rectangle {
+    in property <string> tooltip;
+    background: transparent;
+
+    ta := TouchArea { }
+
+    @children
+
+    if ta.has-hover && root.tooltip != "": Rectangle {
+        x: 14px;
+        y: -self.height - 5px;
+        width: min(320px, tt_text.preferred-width + 14px);
+        height: tt_text.preferred-height + 10px;
+        background: #101010f2;
+        border-width: 1px;
+        border-color: #777777;
+        border-radius: 4px;
+
+        tt_text := Text {
+            x: 7px;
+            y: 5px;
+            width: parent.width - 14px;
+            text: root.tooltip;
+            color: #eeeeee;
+            font-size: 11px;
+            wrap: word-wrap;
+        }
+    }
+}

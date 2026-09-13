@@ -1,0 +1,401 @@
+import { LineEdit, ScrollView, ComboBox, CheckBox } from "std-widgets.slint";
+import { Icon } from "icon.slint";
+import { FieldLabel, ActionButton } from "widgets.slint";
+import { I18n } from "i18n.slint";
+
+// Settings modal, kept in its own file so main_window.slint stays small.
+// All strings come from the I18n global (fed from i18n/*.json by Rust).
+export component SettingsDialog inherits Rectangle {
+    // ---- data (two-way bound by MainWindow) ----
+    in-out property <bool> shown: false;
+    in-out property <string> prefix;
+    in-out property <bool> obfuscate: false;
+    in-out property <string> webhook;
+    in-out property <string> bot-token;
+    in-out property <string> channel-id;
+    in-out property <string> gdrive-creds;
+    in-out property <string> gdrive-folder;
+    in-out property <string> status;
+
+    // reveal toggles for the secret fields only (webhook / bot token)
+    in-out property <bool> reveal-webhook: false;
+    in-out property <bool> reveal-bot-token: false;
+
+    // 0 = no credentials path, 1 = path set but file missing,
+    // 2 = file found, 3 = found + already authorized
+    in-out property <int> gdrive-state: 0;
+    in-out property <[string]> interval-choices;
+    in-out property <int> interval-index: 2;
+    in-out property <int> lang-index: 0;
+
+    // ---- events ----
+    callback saved();
+    callback canceled();
+    callback authorize();
+    callback language-changed(int);
+
+    width: 100%;
+    height: 100%;
+    background: #000000a0;
+
+    // Shield: absorbs hover/clicks so elements under the overlay stay inert.
+    TouchArea { }
+
+    Rectangle {
+        width: min(parent.width - 50px, 900px);
+        height: min(parent.height - 30px, 760px);
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        background: #262626;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: #555555;
+
+        ScrollView {
+            width: 100%;
+            height: 100%;
+
+            VerticalLayout {
+                padding: 18px;
+                spacing: 10px;
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    Icon { kind: 0; size: 22px; }
+                    Text {
+                        text: I18n.settings-title;
+                        color: #ffaa00;
+                        font-size: 17px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // ============================================== general ==
+                HorizontalLayout {
+                    spacing: 6px;
+                    Icon { kind: 17; size: 18px; }
+                    Text {
+                        text: I18n.general-sec;
+                        color: #ffaa00;
+                        font-size: 13px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                }
+                Rectangle { min-height: 1px; max-height: 1px; background: #3d3d3d; }
+
+                HorizontalLayout {
+                    spacing: 14px;
+
+                    // left column
+                    VerticalLayout {
+                        spacing: 4px;
+                        horizontal-stretch: 1;
+
+                        FieldLabel {
+                            icon-kind: 1;
+                            icon-size: 20px;
+                            text: I18n.check-interval;
+                            tooltip: I18n.tip-interval;
+                        }
+                        ComboBox {
+                            model <=> root.interval-choices;
+                            current-index <=> root.interval-index;
+                            // Match the width of the webhook text field.
+                            max-width: 360px;
+                        }
+
+                        FieldLabel {
+                            icon-kind: 2;
+                            icon-size: 20px;
+                            text: I18n.backup-prefix;
+                            tooltip: I18n.tip-prefix;
+                        }
+                        LineEdit {
+                            text <=> root.prefix;
+                            placeholder-text: I18n.prefix-ph;
+                            // Match the width of the webhook text field.
+                            max-width: 360px;
+                        }
+                    }
+
+                    // right column
+                    VerticalLayout {
+                        spacing: 4px;
+                        horizontal-stretch: 1;
+
+                        FieldLabel {
+                            icon-kind: 9;
+                            icon-size: 20px;
+                            text: I18n.lang-label;
+                            tooltip: I18n.tip-language;
+                        }
+                        ComboBox {
+                            model <=> I18n.lang-choices;
+                            current-index <=> root.lang-index;
+                            changed current-index => {
+                                I18n.lang-index = root.lang-index;
+                                root.language-changed(root.lang-index);
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Icon {
+                                kind: 3;
+                                size: 20px;
+                            }
+                            CheckBox {
+                                text: I18n.obfuscate-cb;
+                                checked <=> root.obfuscate;
+                                horizontal-stretch: 1;
+                            }
+                        }
+                        Rectangle { min-height: 20px; }
+                    }
+                }
+
+                // ===== discord =====
+                GridLayout {
+                    spacing: 14px;
+
+                    // webhook (col 0) — secret field: eye toggle + masked input
+                    VerticalLayout {
+                        spacing: 4px;
+
+                        FieldLabel {
+                            icon-kind: 4;
+                            icon-size: 20px;
+                            text: I18n.webhook;
+                            tooltip: I18n.tip-webhook;
+                            has-eye: true;
+                            revealed: root.reveal-webhook;
+                            toggle-reveal => { root.reveal-webhook = !root.reveal-webhook; }
+                        }
+                        LineEdit {
+                            text <=> root.webhook;
+                            placeholder-text: "https://discord.com/api/webhooks/...";
+                            input-type: root.reveal-webhook ? InputType.text : InputType.password;
+                            horizontal-stretch: 0;
+                            max-width: 360px;
+                            min-width: 0px;
+                        }
+                    }
+
+                    // channel-id (col 1)
+                    VerticalLayout {
+                        spacing: 4px;
+
+                        FieldLabel {
+                            icon-kind: 6;
+                            icon-size: 20px;
+                            text: I18n.channel-id;
+                            tooltip: I18n.tip-channel;
+                        }
+                        LineEdit {
+                            text <=> root.channel-id;
+                            placeholder-text: I18n.channel-ph;
+                            horizontal-stretch: 0;
+                            min-width: 0px;
+                        }
+                    }
+                }
+
+                // bot-token on its own line below the discord grid (full width)
+                // Secret field: eye toggle + masked input
+                VerticalLayout {
+                    spacing: 4px;
+
+                    FieldLabel {
+                        icon-kind: 5;
+                        icon-size: 20px;
+                        text: I18n.bot-token;
+                        tooltip: I18n.tip-bot;
+                        has-eye: true;
+                        revealed: root.reveal-bot-token;
+                        toggle-reveal => { root.reveal-bot-token = !root.reveal-bot-token; }
+                    }
+                    LineEdit {
+                        text <=> root.bot-token;
+                        placeholder-text: I18n.token-ph;
+                        input-type: root.reveal-bot-token ? InputType.text : InputType.password;
+                        horizontal-stretch: 0;
+                        max-width: 360px;
+                        min-width: 0px;
+                    }
+                }
+
+                // ===== google drive =====
+                GridLayout {
+                    spacing: 14px;
+
+                    // creds-path (col 0)
+                    VerticalLayout {
+                        spacing: 4px;
+
+                        FieldLabel {
+                            icon-kind: 7;
+                            icon-size: 20px;
+                            text: I18n.creds-path;
+                            tooltip: I18n.tip-creds;
+                        }
+                        LineEdit {
+                            text <=> root.gdrive-creds;
+                            placeholder-text: "./credentials.json";
+                            horizontal-stretch: 0;
+                            max-width: 360px;
+                            min-width: 0px;
+                        }
+                    }
+
+                    // folder-id (col 1)
+                    VerticalLayout {
+                        spacing: 4px;
+
+                        FieldLabel {
+                            icon-kind: 8;
+                            icon-size: 20px;
+                            text: I18n.folder-id;
+                            tooltip: I18n.tip-folder;
+                        }
+                        LineEdit {
+                            text <=> root.gdrive-folder;
+                            placeholder-text: "folder id";
+                            horizontal-stretch: 0;
+                            min-width: 0px;
+                        }
+                    }
+
+                    // authorize button full width below
+                    ActionButton {
+                        label: I18n.authorize;
+                        icon-kind: 9;
+                        compact: true;
+                        tooltip: I18n.tip-authorize;
+                        col: 0; row: 2;
+                        colspan: 2;
+                        horizontal-stretch: 1;
+                        clicked => { root.authorize(); }
+                    }
+                }
+
+                // Google Drive credential status / help boxes
+                if root.gdrive-state == 0: Rectangle {
+                    background: #3a3320;
+                    border-radius: 4px;
+                    border-width: 1px;
+                    border-color: #ffaa00;
+
+                    HorizontalLayout {
+                        padding: 10px;
+                        spacing: 10px;
+
+                        Icon { kind: 13; size: 20px; }
+                        VerticalLayout {
+                            spacing: 4px;
+                            Text {
+                                text: I18n.gd-no-creds-title;
+                                color: #ffcc44;
+                                font-size: 12px;
+                                font-weight: 700;
+                            }
+                            Text {
+                                text: I18n.gd-no-creds-body;
+                                color: #dddddd;
+                                font-size: 11px;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
+
+                if root.gdrive-state == 1: Rectangle {
+                    background: #3a2320;
+                    border-radius: 4px;
+                    border-width: 1px;
+                    border-color: #e74c3c;
+
+                    HorizontalLayout {
+                        padding: 10px;
+                        spacing: 10px;
+
+                        Icon { kind: 13; size: 20px; }
+                        VerticalLayout {
+                            spacing: 4px;
+                            Text {
+                                text: I18n.gd-creds-title;
+                                color: #ff8888;
+                                font-size: 12px;
+                                font-weight: 700;
+                            }
+                            Text {
+                                text: I18n.gd-creds-body;
+                                color: #dddddd;
+                                font-size: 11px;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
+
+                if root.gdrive-state >= 2: Rectangle {
+                    background: root.gdrive-state == 3 ? #1f3a20 : #1f2a3a;
+                    border-radius: 4px;
+                    border-width: 1px;
+                    border-color: root.gdrive-state == 3 ? #55cc66 : #5599cc;
+
+                    HorizontalLayout {
+                        padding: 10px;
+                        spacing: 10px;
+
+                        Icon { kind: 13; size: 20px; }
+                        VerticalLayout {
+                            spacing: 4px;
+                            Text {
+                                text: I18n.gd-ready-title;
+                                color: root.gdrive-state == 3 ? #88ee99 : #88ccff;
+                                font-size: 12px;
+                                font-weight: 700;
+                            }
+                            Text {
+                                text: I18n.gd-ready-body;
+                                color: #dddddd;
+                                font-size: 11px;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
+
+                if root.status != "": Text {
+                    text: root.status;
+                    color: #00ccff;
+                    font-size: 11px;
+                    wrap: word-wrap;
+                }
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    Rectangle { horizontal-stretch: 1; }
+                    ActionButton {
+                        label: I18n.save-b;
+                        icon-kind: 11;
+                        compact: true;
+                        tooltip: I18n.tip-save;
+                        clicked => { root.saved(); }
+                    }
+                    ActionButton {
+                        label: I18n.cancel;
+                        icon-kind: 12;
+                        compact: true;
+                        tooltip: I18n.tip-cancel;
+                        danger: true;
+                        clicked => { root.canceled(); }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                }
+            }
+        }
+    }
+}

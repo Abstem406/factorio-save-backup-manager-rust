@@ -1,0 +1,399 @@
+import { ComboBox } from "std-widgets.slint";
+import { Icon } from "../ui/icon.slint";
+import { Panel, ActionButton, TooltipArea } from "../ui/widgets.slint";
+import { SettingsDialog } from "../ui/settings.slint";
+import { I18n } from "../ui/i18n.slint";
+
+export { I18n }
+
+
+export component MainWindow inherits Window {
+    title: "Factorio Backup Manager";
+    preferred-width: 820px;
+    preferred-height: 820px;
+    min-width: 600px;
+    min-height: 470px;
+    background: #1e1e1e;
+
+    // ---------------------------------------------------------- callbacks ---
+    callback force_check_clicked();
+    callback manual_upload_clicked();
+    callback sync_from_cloud_clicked();
+    callback download_gdrive_clicked();
+    callback download_discord_clicked();
+    callback generate_test_save_clicked();
+    callback open_settings_clicked();
+    callback copy_last_link_clicked();
+    callback copy_console_all();
+    callback settings_saved();
+    callback settings_canceled();
+    callback authorize_gdrive_clicked();
+    callback picker_download_clicked();
+    callback language_changed(int);
+
+    // ----------------------------------------------------------- properties -
+    // status (fed from Rust every tick)
+    in-out property <string> cloud_service: "google-drive";
+    in-out property <int> check_interval: 5;
+    in-out property <string> save_path: "~/.factorio/saves";
+    in-out property <string> last_link: I18n.no-backups;
+    in-out property <string> link_date: "N/A";
+    in-out property <bool> has_link: false;
+    in-out property <int> countdown_seconds: 0;
+    in-out property <string> countdown_text: I18n.next-check + ": --:--";
+    in-out property <bool> busy: false;
+    in-out property <string> busy_text: I18n.working;
+
+    // console (append-only log, scrolls internally via Flickable)
+    in-out property <string> log_text: "";
+    in-out property <image> console-bg;
+
+    // picker dialog
+    in-out property <bool> picker_visible: false;
+    in-out property <int> picker_kind: 0; // 0 = cloud files, 1 = local saves
+    in-out property <string> picker_title: "";
+    in-out property <[string]> picker_model;
+    in-out property <int> picker_index: 0;
+
+    // settings dialog (two-way bound to the SettingsDialog fields)
+    in-out property <bool> settings_visible: false;
+    in-out property <string> settings_prefix: "";
+    in-out property <bool> settings_obfuscate: false;
+    in-out property <string> settings_webhook: "";
+    in-out property <string> settings_bot_token: "";
+    in-out property <string> settings_channel_id: "";
+    in-out property <string> settings_gdrive_creds: "";
+    in-out property <string> settings_gdrive_folder: "";
+    in-out property <string> settings_status: "";
+    in-out property <int> gdrive_state: 0;
+    in-out property <[string]> interval_choices: ["1 min", "2 mins", "5 mins", "10 mins", "15 mins", "30 mins", "60 mins"];
+    in-out property <int> interval_index: 2;
+    in-out property <int> settings_lang_index: 0;
+
+    public function set_language(i: int) {
+        I18n.lang-index = i;
+    }
+
+    VerticalLayout {
+        padding: 10px;
+        spacing: 8px;
+
+        // ------------------------------------------------------- header ----
+        HorizontalLayout {
+            spacing: 10px;
+            Text {
+                text: I18n.app-title;
+                color: #ffaa00;
+                font-size: 20px;
+                font-weight: 700;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+            if root.busy: Rectangle {
+                border-radius: 4px;
+                background: #4a3b14;
+                border-width: 1px;
+                border-color: #ffaa00;
+                min-width: 150px;
+                max-height: 30px;
+                vertical-stretch: 0;
+
+                Text {
+                    x: 8px;
+                    text: root.busy_text;
+                    color: #ffcc44;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+        }                Rectangle { min-height: 1px; max-height: 1px; background: #444444; }
+
+                // status panel
+                Rectangle { min-height: 1px; max-height: 1px; background: #444444; }
+
+        // --------------------------------------------------- status panel --
+        Panel {
+            title: I18n.status-panel;
+            icon-kind: 1;
+
+            VerticalLayout {
+                padding: 8px;
+                padding-top: 28px;
+                spacing: 6px;
+
+                Text {
+                    text: I18n.service + ": " + root.cloud_service;
+                    color: #88ccff;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: I18n.interval-label + ": " + root.check_interval + " " + I18n.mins;
+                    color: #ffffff;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: I18n.save-path + ": " + root.save_path;
+                    color: #aaaaaa;
+                    font-size: 12px;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text {
+                        text: I18n.last-link + ": " + root.last_link;
+                        color: #66cc66;
+                        font-size: 12px;
+                        overflow: elide;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                    }
+                    if root.has_link: ActionButton {
+                        label: I18n.copy;
+                        icon-kind: 4;
+                        tooltip: I18n.tip-copy;
+                        min-width: 84px;
+                        max-height: 26px;
+                        horizontal-stretch: 0;
+                        clicked => { root.copy_last_link_clicked(); }
+                    }
+                }
+                Text {
+                    text: I18n.link-date + ": " + root.link_date;
+                    color: #777777;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // ------------------------------------------------------- countdown -
+        TooltipArea {
+            tooltip: I18n.tip-next-check;
+            min-height: 38px;
+            max-height: 38px;
+            background: #333333;
+            border-width: 1px;
+            border-color: #444444;
+            border-radius: 4px;
+
+            Text {
+                x: 12px;
+                text: root.countdown_text;
+                color: root.countdown_seconds > 0 ? #ffaa00 : #888888;
+                font-size: 15px;
+                font-family: "Monospace";
+                vertical-alignment: center;
+            }
+        }
+
+        // -------------------------------------------------- actions panel --
+        Panel {
+            title: I18n.tools-panel;
+            icon-kind: 5;
+
+            VerticalLayout {
+                padding: 8px;
+                padding-top: 30px;
+                spacing: 8px;
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    ActionButton {
+                        label: I18n.force-check;
+                        icon-kind: 1;
+                        tooltip: I18n.tip-force-check;
+                        clicked => { root.force_check_clicked(); }
+                    }
+                    ActionButton {
+                        label: I18n.manual-upload;
+                        icon-kind: 11;
+                        tooltip: I18n.tip-manual-upload;
+                        clicked => { root.manual_upload_clicked(); }
+                    }
+                    ActionButton {
+                        label: I18n.sync-cloud;
+                        icon-kind: 14;
+                        tooltip: I18n.tip-sync-cloud;
+                        clicked => { root.sync_from_cloud_clicked(); }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    ActionButton {
+                        label: I18n.download-drive;
+                        icon-kind: 10;
+                        tooltip: I18n.tip-download-drive;
+                        clicked => { root.download_gdrive_clicked(); }
+                    }
+                    ActionButton {
+                        label: I18n.download-discord;
+                        icon-kind: 4;
+                        tooltip: I18n.tip-download-discord;
+                        clicked => { root.download_discord_clicked(); }
+                    }
+                    ActionButton {
+                        label: I18n.test-save;
+                        icon-kind: 13;
+                        tooltip: I18n.tip-test-save;
+                        clicked => { root.generate_test_save_clicked(); }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    ActionButton {
+                        label: I18n.settings;
+                        icon-kind: 0;
+                        tooltip: I18n.tip-settings;
+                        horizontal-stretch: 1;
+                        min-width: 0px;
+                        clicked => { root.open_settings_clicked(); }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    Rectangle { horizontal-stretch: 1; }
+                }
+            }
+        }
+
+        // -------------------------------------- console (flexible, scrolls)
+        Panel {
+            title: I18n.console-panel;
+            icon-kind: 6;
+            horizontal-stretch: 1;
+            vertical-stretch: 3;
+
+            // Fondo con la imagen de Factorio (si está disponible) con opacidad,
+            // detrás del texto para que la consola se lea bien.
+            bg := Image {
+                source: root.console-bg;
+                width: parent.width;
+                height: parent.height;
+                image-fit: fill;
+                opacity: 0.35;
+            }
+
+            console := Flickable {
+                x: 12px;
+                y: 32px;
+                width: parent.width - 24px;
+                height: parent.height - 40px;
+                interactive: true;
+                // Viewport locked to the visible width: long lines wrap
+                // instead of overflowing to the left.
+                viewport-width: self.width;
+                viewport-height: log_content.preferred-height;
+
+                log_content := TextInput {
+                    width: console.width;
+                    text: root.log_text;
+                    read-only: true;
+                    single-line: false;
+                    wrap: word-wrap;
+                    color: #00ff88;
+                    font-size: 12px;
+                    font-family: "Monospace";
+                    selection-background-color: #0f4d1e;
+                    selection-foreground-color: #aaffaa;
+                    text-cursor-width: 0px;
+                }
+            }
+        }
+
+        // --------------------------------------------------------- footer --
+        Text {
+            text: I18n.footer;
+            color: #555555;
+            font-size: 11px;
+        }
+    }
+
+    // ------------------------------------------------------ picker dialog --
+    if root.picker_visible: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #00000080;
+
+        // Shield: absorbs hover/clicks so elements under it stay inert.
+        TouchArea { }
+
+        Rectangle {
+            width: min(parent.width - 80px, 640px);
+            height: min(parent.height - 80px, 300px);
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: #2a2a2a;
+            border-radius: 6px;
+            border-width: 1px;
+            border-color: #555555;
+
+            VerticalLayout {
+                padding: 16px;
+                spacing: 12px;
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    Icon { kind: 8; size: 20px; }
+                    Text {
+                        text: root.picker_title;
+                        color: #ffaa00;
+                        font-size: 15px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                }
+                ComboBox {
+                    model <=> root.picker_model;
+                    current-index <=> root.picker_index;
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    ActionButton {
+                        label: I18n.cancel;
+                        icon-kind: 12;
+                        danger: true;
+                        clicked => { root.picker_visible = false; }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    ActionButton {
+                        label: root.picker_kind == 0 ? I18n.download-b : I18n.upload-b;
+                        icon-kind: root.picker_kind == 0 ? 10 : 11;
+                        clicked => {
+                            root.picker_visible = false;
+                            root.picker_download_clicked();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ---------------------------------------------------- settings dialog --
+    // Gated by `if`: when it was instantiated unconditionally it covered the
+    // whole window from startup and Cancel had nothing to remove.
+    if root.settings_visible: SettingsDialog {
+        shown <=> root.settings_visible;
+        prefix <=> root.settings_prefix;
+        obfuscate <=> root.settings_obfuscate;
+        webhook <=> root.settings_webhook;
+        bot-token <=> root.settings_bot_token;
+        channel-id <=> root.settings_channel_id;
+        gdrive-creds <=> root.settings_gdrive_creds;
+        gdrive-folder <=> root.settings_gdrive_folder;
+        status <=> root.settings_status;
+        gdrive-state <=> root.gdrive_state;
+        interval-choices <=> root.interval_choices;
+        interval-index <=> root.interval_index;
+        lang-index <=> root.settings_lang_index;
+
+        saved => { root.settings_saved(); }
+        canceled => {
+            root.settings_visible = false;
+            root.settings_canceled();
+        }
+        authorize => { root.authorize_gdrive_clicked(); }
+        language-changed(idx) => { root.language_changed(idx); }
+    }
+}
