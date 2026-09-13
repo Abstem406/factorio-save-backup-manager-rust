@@ -724,11 +724,8 @@ fn main() {
     let window = MainWindow::new().unwrap();
     *WINDOW_FOR_LANG.lock().unwrap() = Some(window.as_weak());
 
-    // Cargar la imagen de fondo para la consola de actividad (si existe).
-    // No es fatal si no está disponible; la consola se muestra sin fondo.
-    if let Ok(bg) = slint::Image::load_from_path(std::path::Path::new("factorio_chad_bg.png")) {
-        window.set_console_bg(bg);
-    }
+    // El fondo de la consola va incrustado en el binario (ver console-bg en
+    // main_window.slint), no se carga desde el disco en runtime.
 
     let log = SharedLog::new();
 

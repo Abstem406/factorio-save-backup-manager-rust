@@ -46,7 +46,10 @@ export component MainWindow inherits Window {
 
     // console (append-only log, scrolls internally via Flickable)
     in-out property <string> log_text: "";
-    in-out property <image> console-bg;
+    // Fondo de la consola incrustado en el binario en tiempo de compilación
+    // (@image-url resuelve relativo al .slint, funciona en AppImage/exe sin
+    // depender del cwd ni de archivos externos).
+    in-out property <image> console-bg: @image-url("../factorio_chad_bg.png");
 
     // picker dialog
     in-out property <bool> picker_visible: false;
