@@ -8,15 +8,18 @@ permissions:
   contents: write
 
 jobs:
-  release-windows:
-    name: Build and publish Windows release
+  verify-version:
+    name: Verify tag matches Cargo.toml (strict)
     runs-on: ubuntu-latest
-    env:
-      BIN_NAME: factorio-save-backup-manager-rust
+    outputs:
+      version: ${{ steps.check.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify tag matches Cargo.toml version (strict)
+      - name: Check tag/version consistency
+        id: check
+        env:
+          BIN_NAME: factorio-save-backup-manager-rust
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           CARGO_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == env.BIN_NAME) | .version')
@@ -25,7 +28,14 @@ jobs:
             echo "::error::Tag v$TAG_VERSION does not match Cargo.toml version $CARGO_VERSION — fix one of them, delete the tag and re-tag."
             exit 1
           fi
-          echo "VERSION=$CARGO_VERSION" >> "$GITHUB_ENV"
+          echo "version=$CARGO_VERSION" >> "$GITHUB_OUTPUT"
+
+  release-windows:
+    name: Build Windows exe
+    needs: verify-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -43,10 +53,10 @@ jobs:
           key: release-xwin-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: release-xwin-${{ runner.os }}-
 
-      - name: Install LLVM, cargo-xwin and wine
+      - name: Install LLVM and cargo-xwin
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends llvm clang lld wine64 xvfb
+          sudo apt-get install -y --no-install-recommends llvm clang lld
           cargo install --locked cargo-xwin
 
       - name: Build Windows exe (release)
@@ -55,14 +65,13 @@ jobs:
       - name: Stage release artifacts
         run: |
           mkdir -p dist
-          cp "target/x86_64-pc-windows-msvc/release/$BIN_NAME.exe" \
-             "dist/$BIN_NAME-$VERSION-win64.exe"
-          sha256sum "dist/$BIN_NAME-$VERSION-win64.exe" \
-            > "dist/$BIN_NAME-$VERSION-win64.exe.sha256"
+          cp "target/x86_64-pc-windows-msvc/release/factorio-save-backup-manager-rust.exe" \
+             "dist/factorio-save-backup-manager-rust-${{ needs.verify-version.outputs.version }}-win64.exe"
+          sha256sum dist/*.exe > dist/exe.sha256
 
       - name: Wine smoke test (GUI stays alive for 15 s)
         run: |
-          EXE="dist/$BIN_NAME-$VERSION-win64.exe"
+          EXE=$(ls dist/*.exe | head -1)
           # timeout exits 124 when it had to kill the process = GUI was alive.
           # A natural early exit means the app crashed: fail.
           set +e
@@ -76,30 +85,96 @@ jobs:
             exit 1
           fi
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: dist/*
+          if-no-files-found: error
+
+  release-linux:
+    name: Build Linux AppImage
+    needs: verify-version
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: release-linux-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: release-linux-${{ runner.os }}-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libssl-dev libfontconfig1-dev imagemagick libfuse2 file
+
+      - name: Build AppImage
+        run: ./build-appimage.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-release
+          path: dist/*
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [verify-version, release-windows, release-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Fix checksum file (single combined sha256)
+        run: |
+          cd artifacts
+          rm -f exe.sha256
+          sha256sum *.exe *.AppImage > SHA256SUMS.txt
+          ls -la
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Factorio Save Backup Manager ${{ env.VERSION }}
+          name: Factorio Save Backup Manager ${{ needs.verify-version.outputs.version }}
           body: |
-            ## Factorio Save Backup Manager ${{ env.VERSION }}
+            ## Factorio Save Backup Manager ${{ needs.verify-version.outputs.version }}
 
-            Portable Windows build — no installation required.
+            Portable builds — no installation required.
+
+            ### Downloads
+            - **Windows**: `factorio-save-backup-manager-rust-<version>-win64.exe`
+            - **Linux**: `factorio-save-backup-manager-rust-<version>-x86_64.AppImage`
+              (run with `chmod +x` then double-click, or `./…AppImage`; requires FUSE)
 
             ### Requirements
-            - Windows 10/11 64-bit
             - Google Drive uploads: place your OAuth `credentials.json`
-              ("Desktop app" type from Google Cloud Console) next to the exe;
-              the app opens a browser login on first use (`gdrive-token.json`
-              is created automatically).
+              ("Desktop app" type from Google Cloud Console) **next to the
+              binary**; the app opens a browser login on first use
+              (`gdrive-token.json` is created automatically).
             - Discord notifications (optional): configure webhook / bot token
               in the app's settings.
 
             ### Notes
-            - The exe is not code-signed; Windows SmartScreen may show a
+            - The builds are not code-signed; Windows SmartScreen may show a
               warning — choose "More info" → "Run anyway".
-            - Config, token and credentials files are created next to the exe
-              (keep it in its own folder).
+            - Config, token and credentials files are created next to the
+              binary (keep it in its own folder).
           files: |
-            dist/${{ env.BIN_NAME }}-${{ env.VERSION }}-win64.exe
-            dist/${{ env.BIN_NAME }}-${{ env.VERSION }}-win64.exe.sha256
+            artifacts/*.exe
+            artifacts/*.AppImage
+            artifacts/SHA256SUMS.txt
           generate_release_notes: false

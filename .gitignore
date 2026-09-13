@@ -2,6 +2,10 @@
 /target
 /dist
 
+# AppImage build dirs
+/.appimage-build
+/.build-assets
+
 # Runtime secrets & local settings (stored next to the executable)
 credentials.json
 gdrive-token.json

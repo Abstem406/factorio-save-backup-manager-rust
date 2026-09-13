@@ -45,3 +45,38 @@ jobs:
           name: factorio-save-backup-manager-rust-win64-${{ github.sha }}
           path: target/x86_64-pc-windows-msvc/release/factorio-save-backup-manager-rust.exe
           if-no-files-found: error
+
+  build-linux:
+    name: Build Linux AppImage (check)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ci-linux-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ci-linux-${{ runner.os }}-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libssl-dev libfontconfig1-dev imagemagick libfuse2 file
+
+      - name: Build AppImage
+        run: ./build-appimage.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: factorio-save-backup-manager-rust-linux-${{ github.sha }}
+          path: dist/*
+          if-no-files-found: error
