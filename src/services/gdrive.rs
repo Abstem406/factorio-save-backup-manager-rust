@@ -457,11 +457,54 @@ impl GDriveClient {
         }
 
         let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+        let file_id = v
+            .get("id")
+            .and_then(|x| x.as_str())
+            .unwrap_or_default()
+            .to_string();
         let link = v
             .get("webViewLink")
             .and_then(|x| x.as_str())
             .unwrap_or("https://drive.google.com");
+
+        // Best-effort: grant "anyone with the link can view" so the link in
+        // the Discord embed works without signing in to the owner's Google
+        // account. Failures are ignored on purpose: some Workspace domains
+        // forbid link sharing, and blocking the upload over that would be
+        // worse (the app's own downloads use the authenticated API anyway).
+        if !file_id.is_empty() {
+            if let Err(e) = self.grant_link_access(&file_id) {
+                eprintln!("Warning: could not set link-sharing on {file_id}: {e}");
+            }
+        }
+
         Ok(link.to_string())
+    }
+
+    /// Grant "anyone with the link can view" on a Drive file
+    /// (permissions.create with type=anyone, role=reader).
+    fn grant_link_access(&self, file_id: &str) -> Result<(), String> {
+        let token = self.access_token()?;
+        let resp = self
+            .http
+            .post(format!(
+                "https://www.googleapis.com/drive/v3/files/{}/permissions?supportsAllDrives=true",
+                urlencode(file_id)
+            ))
+            .bearer_auth(&token)
+            .json(&serde_json::json!({ "role": "reader", "type": "anyone" }))
+            .send()
+            .map_err(|e| format!("Permission request failed: {e}"))?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let text = resp.text().unwrap_or_default();
+            return Err(format!(
+                "setting link-sharing failed ({status}): {}",
+                text.chars().take(200).collect::<String>()
+            ));
+        }
+        Ok(())
     }
 
     /// List the most recent .zip backups in the configured folder.
