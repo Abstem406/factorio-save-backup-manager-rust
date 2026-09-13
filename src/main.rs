@@ -2,6 +2,10 @@
 //! Real implementations: Google Drive OAuth2 REST uploads/downloads, Discord
 //! webhook notifications + bot downloads, link resolvers, config persistence.
 
+// GUI-only on Windows: no console window is allocated on launch.
+// (The in-app log pane replaces eprintln! output there.)
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+
 slint::include_modules!();
 
 mod config;

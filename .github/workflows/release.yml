@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows:
+    name: Build and publish Windows release
+    runs-on: ubuntu-latest
+    env:
+      BIN_NAME: factorio-save-backup-manager-rust
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify tag matches Cargo.toml version (strict)
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          CARGO_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == env.BIN_NAME) | .version')
+          echo "tag=$TAG_VERSION cargo=$CARGO_VERSION"
+          if [ "$TAG_VERSION" != "$CARGO_VERSION" ]; then
+            echo "::error::Tag v$TAG_VERSION does not match Cargo.toml version $CARGO_VERSION — fix one of them, delete the tag and re-tag."
+            exit 1
+          fi
+          echo "VERSION=$CARGO_VERSION" >> "$GITHUB_ENV"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cache/xwin
+            target
+          key: release-xwin-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: release-xwin-${{ runner.os }}-
+
+      - name: Install LLVM, cargo-xwin and wine
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends llvm clang lld wine64 xvfb
+          cargo install --locked cargo-xwin
+
+      - name: Build Windows exe (release)
+        run: cargo xwin build --release --target x86_64-pc-windows-msvc
+
+      - name: Stage release artifacts
+        run: |
+          mkdir -p dist
+          cp "target/x86_64-pc-windows-msvc/release/$BIN_NAME.exe" \
+             "dist/$BIN_NAME-$VERSION-win64.exe"
+          sha256sum "dist/$BIN_NAME-$VERSION-win64.exe" \
+            > "dist/$BIN_NAME-$VERSION-win64.exe.sha256"
+
+      - name: Wine smoke test (GUI stays alive for 15 s)
+        run: |
+          EXE="dist/$BIN_NAME-$VERSION-win64.exe"
+          # timeout exits 124 when it had to kill the process = GUI was alive.
+          # A natural early exit means the app crashed: fail.
+          set +e
+          xvfb-run -a timeout 15 wine64 "$EXE"
+          CODE=$?
+          set -e
+          if [ "$CODE" -eq 124 ]; then
+            echo "GUI was still running after 15 s: smoke test PASSED"
+          else
+            echo "::error::exe exited early with code $CODE: smoke test FAILED"
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Factorio Save Backup Manager ${{ env.VERSION }}
+          body: |
+            ## Factorio Save Backup Manager ${{ env.VERSION }}
+
+            Portable Windows build — no installation required.
+
+            ### Requirements
+            - Windows 10/11 64-bit
+            - Google Drive uploads: place your OAuth `credentials.json`
+              ("Desktop app" type from Google Cloud Console) next to the exe;
+              the app opens a browser login on first use (`gdrive-token.json`
+              is created automatically).
+            - Discord notifications (optional): configure webhook / bot token
+              in the app's settings.
+
+            ### Notes
+            - The exe is not code-signed; Windows SmartScreen may show a
+              warning — choose "More info" → "Run anyway".
+            - Config, token and credentials files are created next to the exe
+              (keep it in its own folder).
+          files: |
+            dist/${{ env.BIN_NAME }}-${{ env.VERSION }}-win64.exe
+            dist/${{ env.BIN_NAME }}-${{ env.VERSION }}-win64.exe.sha256
+          generate_release_notes: false

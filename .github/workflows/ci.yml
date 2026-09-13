@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    name: Cross-compile Windows exe (check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cache/xwin
+            target
+          key: ci-xwin-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ci-xwin-${{ runner.os }}-
+
+      - name: Install LLVM and cargo-xwin
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends llvm clang lld
+          cargo install --locked cargo-xwin
+
+      - name: Build Windows exe (release)
+        run: cargo xwin build --release --target x86_64-pc-windows-msvc
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: factorio-save-backup-manager-rust-win64-${{ github.sha }}
+          path: target/x86_64-pc-windows-msvc/release/factorio-save-backup-manager-rust.exe
+          if-no-files-found: error

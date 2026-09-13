@@ -32,6 +32,30 @@ cargo build --release
 The binary is written to `target/release/factorio-save-backup-manager-rust`
 (`.exe` on Windows).
 
+### Building for Windows (cross-compile from Linux)
+
+Windows exe builds embed the app icon and version metadata automatically
+(see `build.rs`; uses `llvm-rc` + cargo-xwin).
+
+One-time toolchain setup:
+
+```bash
+rustup target add x86_64-pc-windows-msvc
+cargo install --locked cargo-xwin
+sudo apt install llvm clang lld
+```
+
+Then build a distributable exe with checksum:
+
+```bash
+./build-release.sh
+# -> dist/factorio-save-backup-manager-rust-<version>-win64.exe
+```
+
+CI does this automatically: every push to `main` runs a build check, and
+pushing a tag `vX.Y.Z` (matching the version in `Cargo.toml`) cross-compiles,
+smoke-tests the exe under wine and publishes it to a GitHub Release.
+
 ## Setup
 
 The app loads its runtime files from the directory next to the executable:
