@@ -504,17 +504,52 @@ impl BackupCore {
             latest.file_name,
             latest.timestamp
         ));
+
+        let target = self.save_path.join(&latest.file_name);
+
+        // Google Drive links: the webhook embed carries the webViewLink
+        // (.../file/d/<ID>/view), which only serves an HTML page. Extract the
+        // file ID and use the authenticated Drive download API instead.
+        if let Some(file_id) = extract_drive_file_id(&latest.url) {
+            self.log.add(&format!(
+                "🌐 {}: Google Drive (file {file_id})",
+                i18n::t("final-url")
+            ));
+            let client = match self.gdrive_client() {
+                Ok(c) => c,
+                Err(e) => {
+                    self.log.add(&format!("❌ {e}"));
+                    return;
+                }
+            };
+            match client.download_file(&file_id, &target) {
+                Ok(()) => {
+                    let size = fs::metadata(&target).map(|m| m.len()).unwrap_or(0) as f64
+                        / 1024.0
+                        / 1024.0;
+                    self.log.add(&format!(
+                        "✅ {}: {} ({size:.2} MB)",
+                        i18n::t("download-complete"),
+                        target.display()
+                    ));
+                }
+                Err(e) => self
+                    .log
+                    .add(&format!("❌ {}: {e}", i18n::t("download-error"))),
+            }
+            return;
+        }
+
+        // Other services: resolve landing pages into direct URLs first.
         self.log.add(&format!(
             "🔗 {}: {}",
             i18n::t("resolving-link"),
             latest.url
         ));
-
         let direct = resolver::resolve_direct_link(&latest.url);
         self.log
             .add(&format!("🌐 {}: {direct}", i18n::t("final-url")));
 
-        let target = self.save_path.join(&latest.file_name);
         match discord::download_to_file(&direct, &target, &latest.file_name) {
             Ok(bytes) => {
                 let size = bytes as f64 / 1024.0 / 1024.0;
@@ -552,6 +587,32 @@ impl BackupCore {
                 .add(&format!("❌ {}: {e}", i18n::t("test-save-error"))),
         }
     }
+}
+
+/// Extract the file ID from a Google Drive link (webViewLink
+/// `.../file/d/<ID>/view` or `...?id=<ID>` style URLs). Returns None for
+/// non-Google URLs.
+fn extract_drive_file_id(url: &str) -> Option<String> {
+    let is_drive = url.contains("drive.google.com") || url.contains("docs.google.com");
+    if !is_drive {
+        return None;
+    }
+    if let Some(rest) = url.split("/file/d/").nth(1) {
+        let id = rest.split('/').next()?;
+        if !id.is_empty() {
+            return Some(id.to_string());
+        }
+    }
+    if let Some(rest) = url.split("id=").nth(1) {
+        let id: String = rest
+            .chars()
+            .take_while(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
+            .collect();
+        if !id.is_empty() {
+            return Some(id);
+        }
+    }
+    None
 }
 
 fn parse_drive_time(s: &str) -> Option<SystemTime> {
@@ -1141,5 +1202,34 @@ fn run_command(core: &Arc<BackupCore>, cmd: Command, w: &slint::Weak<MainWindow>
                 "language-changed-en"
             }));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extracts_drive_file_id_from_webview_link() {
+        assert_eq!(
+            extract_drive_file_id(
+                "https://drive.google.com/file/d/1AbC_dEf-123/view?usp=sharing"
+            ),
+            Some("1AbC_dEf-123".to_string())
+        );
+    }
+
+    #[test]
+    fn extracts_drive_file_id_from_id_param() {
+        assert_eq!(
+            extract_drive_file_id("https://drive.google.com/uc?export=download&id=XYZ_456"),
+            Some("XYZ_456".to_string())
+        );
+    }
+
+    #[test]
+    fn ignores_non_drive_links() {
+        assert_eq!(extract_drive_file_id("https://buzzheavier.com/abc.zip"), None);
+        assert_eq!(extract_drive_file_id("https://example.com/file/d/123/view"), None);
     }
 }
