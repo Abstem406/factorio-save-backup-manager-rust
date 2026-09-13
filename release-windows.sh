@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build a Windows release exe from Linux (see windows-build-spec.md §6.4).
-# Usage: ./build-release.sh
+# Usage: ./release-windows.sh
 set -euo pipefail
 
 TARGET="x86_64-pc-windows-msvc"

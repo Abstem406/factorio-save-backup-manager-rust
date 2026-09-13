@@ -72,7 +72,7 @@ jobs:
             libssl-dev libfontconfig1-dev imagemagick libfuse2 file
 
       - name: Build AppImage
-        run: ./build-appimage.sh
+        run: ./release-linux.sh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

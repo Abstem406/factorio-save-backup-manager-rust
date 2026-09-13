@@ -93,13 +93,25 @@ struct TokenResponse {
 }
 
 /// Resolve a (possibly relative) credentials path: next to the executable
-/// first, then cwd-relative (like the JS version).
+/// first, then next to the .AppImage bundle, then cwd-relative (like the JS
+/// version).
 pub fn resolve_credentials_path(credentials_path: &str) -> PathBuf {
     if Path::new(credentials_path).is_absolute() {
         return PathBuf::from(credentials_path);
     }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
+            let p = dir.join(credentials_path);
+            if p.exists() {
+                return p;
+            }
+        }
+    }
+    // Inside an AppImage the exe lives in a read-only extraction dir; the
+    // runtime exports $APPIMAGE pointing at the bundle, so also look next to
+    // the .AppImage file itself (where users actually put their files).
+    if let Ok(appimage) = std::env::var("APPIMAGE") {
+        if let Some(dir) = Path::new(&appimage).parent() {
             let p = dir.join(credentials_path);
             if p.exists() {
                 return p;
@@ -588,5 +600,33 @@ pub fn open_in_browser(url: &str) -> Result<(), String> {
             .spawn()
             .map_err(|e| e.to_string())?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// When the exe runs inside an AppImage ($APPIMAGE set, extraction dir is
+    /// not writable), credentials next to the .AppImage bundle must be found.
+    #[test]
+    fn resolve_finds_credentials_next_to_appimage_bundle() {
+        let dir = std::env::temp_dir().join("gdrive-resolver-test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let name = "credentials-appimage-test.json";
+        let path = dir.join(name);
+        std::fs::write(&path, b"{}").unwrap();
+
+        // Simulate the AppImage runtime: exe somewhere else, bundle in `dir`.
+        // SAFETY: tests run single-threaded by default; no other reader of
+        // APPIMAGE races with us here.
+        unsafe { std::env::set_var("APPIMAGE", dir.join("my-app.AppImage")) };
+
+        let resolved = resolve_credentials_path(name);
+        assert_eq!(resolved, path);
+
+        unsafe { std::env::remove_var("APPIMAGE") };
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_dir(&dir);
     }
 }

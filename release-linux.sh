@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build a Linux AppImage from the local system. The AppImage bundles shared
 # libraries (OpenSSL, fontconfig, freetype...) so it runs on any modern distro.
-# Usage: ./build-appimage.sh
+# Usage: ./release-linux.sh
 set -euo pipefail
 
 BIN_NAME="factorio-save-backup-manager-rust"

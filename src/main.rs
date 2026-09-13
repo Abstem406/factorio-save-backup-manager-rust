@@ -992,26 +992,26 @@ fn core_config_lang(core: &Arc<BackupCore>) -> String {
 }
 
 /// Compute the Google Drive status shown in Settings:
-/// 0 = no credentials path, 1 = path set but file missing,
+/// 0 = no credentials found, 1 = path set but file missing,
 /// 2 = credentials file found, 3 = found + OAuth already authorized.
+/// An empty field auto-detects `credentials.json` (exe dir, AppImage bundle
+/// dir, or cwd) so users don't have to type "./credentials.json".
 fn gdrive_state_for(cfg: &AppConfig) -> i32 {
-    let creds = cfg
+    let field = cfg
         .google_drive
         .as_ref()
         .and_then(|g| g.credentials_path.clone())
         .unwrap_or_default();
-    if creds.trim().is_empty() {
-        return 0;
-    }
-    let path = gdrive::resolve_credentials_path(&creds);
-    if !path.exists() {
-        return 1;
-    }
-    if has_stored_refresh_token() {
-        3
+    let field_is_empty = field.trim().is_empty();
+    let candidate = if field_is_empty {
+        "credentials.json"
     } else {
-        2
+        field.as_str()
+    };
+    if !gdrive::resolve_credentials_path(candidate).exists() {
+        return if field_is_empty { 0 } else { 1 };
     }
+    if has_stored_refresh_token() { 3 } else { 2 }
 }
 
 fn interval_to_index(mins: u64) -> i32 {
@@ -1099,7 +1099,8 @@ fn run_command(core: &Arc<BackupCore>, cmd: Command, w: &slint::Weak<MainWindow>
                 .google_drive
                 .as_ref()
                 .and_then(|g| g.credentials_path.clone())
-                .unwrap_or_else(|| "./credentials.json".into());
+                .filter(|p| !p.trim().is_empty())
+                .unwrap_or_else(|| "credentials.json".into());
             let (state, status) = match GDriveClient::new(&creds_path) {
                 Ok(client) => match client.authorize() {
                     Ok(()) => {

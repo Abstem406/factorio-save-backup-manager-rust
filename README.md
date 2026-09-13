@@ -48,7 +48,8 @@ sudo apt install llvm clang lld
 Then build a distributable exe with checksum:
 
 ```bash
-./build-release.sh
+./release-windows.sh   # Windows exe (cross-compiled)
+./release-linux.sh     # Linux AppImage
 # -> dist/factorio-save-backup-manager-rust-<version>-win64.exe
 ```
 
@@ -58,7 +59,11 @@ smoke-tests the exe under wine and publishes it to a GitHub Release.
 
 ## Setup
 
-The app loads its runtime files from the directory next to the executable:
+The app loads its runtime files from a writable data directory:
+next to the executable in normal installs, or
+`~/.local/share/factorio-save-backup-manager-rust/` when running as an
+AppImage. `credentials.json` is also detected next to the `.AppImage`
+bundle.
 
 | File                | Purpose                                      | Required |
 | ------------------- | -------------------------------------------- | -------- |
@@ -66,9 +71,9 @@ The app loads its runtime files from the directory next to the executable:
 | `gdrive-token.json` | OAuth token cache (created after first login) | Auto-generated |
 | `config.json`       | App settings (created by the settings screen) | Auto-generated |
 
-> **Note:** `credentials.json`, `gdrive-token.json` and `config.json` are
-> personal/local and are intentionally **not** committed to this repository
-> (see `.gitignore`).
+> **Note:** these files are personal/local and are intentionally
+> **not** committed to this repository (see `.gitignore`). They are created
+> automatically in the data directory described above.
 
 ## Tech stack
 

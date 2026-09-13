@@ -52,7 +52,7 @@ Produce a Windows 64-bit `.exe` of the app that:
 | Release notes | **Minimal fixed template** (description + runtime requirements) |
 | Verification | **Wine smoke test in CI** (GUI starts and stays alive under Xvfb) |
 | First release | **User tags manually** — do not create/push tags as part of this task |
-| Local script | **Yes** — `build-release.sh` for manual builds |
+| Local script | **Yes** — `release-windows.sh` for manual builds |
 | GitHub push (pending from last session) | **Out of scope** — user will handle; CI cannot run until the initial commit is pushed |
 
 ---
@@ -62,7 +62,7 @@ Produce a Windows 64-bit `.exe` of the app that:
 1. **`build.rs`** (modified) — Slint compile + Windows resource embedding.
 2. **`src/main.rs`** (modified) — `#![windows_subsystem = "windows"]`.
 3. **`.cargo/config.toml`** (new) — default linker/runner settings for the MSVC cross target (optional but recommended, see §6.3).
-4. **`build-release.sh`** (new) — local cross-compile + rename helper.
+4. **`release-windows.sh`** (new) — local cross-compile + rename helper.
 5. **`.github/workflows/ci.yml`** (new) — build check on push to `main`.
 6. **`.github/workflows/release.yml`** (new) — tag-triggered build + smoke test + GitHub Release.
 7. **`README.md`** (modified) — short "Building for Windows" section.
@@ -141,7 +141,7 @@ cargo install cargo-xwin
   sysroot, or explicit documentation that `cargo xwin build` must be used.
 - Keep minimal; cargo-xwin drives most env setup itself.
 
-### 6.4 `build-release.sh` (new)
+### 6.4 `release-windows.sh` (new)
 Behavior:
 1. Reads version from `Cargo.toml` (`cargo metadata --no-deps` or `grep`).
 2. Runs `cargo xwin build --release --target x86_64-pc-windows-msvc`.
@@ -253,7 +253,7 @@ Portable Windows build — no installation required.
 
 1. `cargo xwin build --release --target x86_64-pc-windows-msvc` succeeds on
    this Linux machine and produces `dist/factorio-save-backup-manager-rust-0.2.0-win64.exe`
-   via `build-release.sh`.
+   via `release-windows.sh`.
 2. The exe shows the chad icon in Windows Explorer and the Properties →
    Details tab shows product name, version 0.2.0, author and description.
 3. Launching the exe on Windows shows **no console window**, only the GUI.

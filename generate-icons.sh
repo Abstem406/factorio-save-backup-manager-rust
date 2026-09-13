@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Generate square PNG icons (16..512 px) from factorio_chad.png.
-# Used by build-appimage.sh; output goes to the given directory.
+# Used by release-linux.sh; output goes to the given directory.
 # Usage: ./generate-icons.sh [output-dir] [source-image]
 set -euo pipefail
 
