@@ -112,14 +112,10 @@ pub fn resolve_credentials_path(credentials_path: &str) -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from(credentials_path))
 }
 
-/// Where the OAuth token file is stored (next to the executable).
+/// Where the OAuth token file is stored (writable data dir; see
+/// `config::data_dir` — next to the exe, or ~/.local/share inside AppImages).
 pub fn token_file_path() -> PathBuf {
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            return dir.join("gdrive-token.json");
-        }
-    }
-    PathBuf::from("gdrive-token.json")
+    crate::config::data_dir().join("gdrive-token.json")
 }
 
 /// True if a stored OAuth refresh token exists (i.e. the app was already
@@ -215,12 +211,28 @@ impl GDriveClient {
 
         println!("Waiting for authorization on {redirect_uri} ...");
 
-        // 3. Accept exactly one request containing ?code=.
+        // 3. Accept exactly one request containing ?code= (3-minute timeout so
+        //    an abandoned browser flow cannot block the worker thread forever).
         //    The same connection is then used to also serve the callback page,
         //    so the browser shows the confirmation before closing itself.
-        let (mut stream, _) = listener
-            .accept()
-            .map_err(|e| format!("OAuth redirect failed: {e}"))?;
+        listener
+            .set_nonblocking(true)
+            .map_err(|e| format!("OAuth listener error: {e}"))?;
+        let deadline = Instant::now() + Duration::from_secs(180);
+        let (mut stream, _) = loop {
+            match listener.accept() {
+                Ok(pair) => break pair,
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    if Instant::now() >= deadline {
+                        return Err(
+                            "OAuth timeout: no callback received within 3 minutes. \nOpen Settings and try again.".into(),
+                        );
+                    }
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+                Err(e) => return Err(format!("OAuth redirect failed: {e}")),
+            }
+        };
         let mut buf = [0u8; 8192];
         let n = stream.read(&mut buf).unwrap_or(0);
         let request = String::from_utf8_lossy(&buf[..n]).to_string();
@@ -331,11 +343,11 @@ impl GDriveClient {
 
         let tokens: TokenResponse =
             serde_json::from_str(&body).map_err(|e| format!("Bad token response: {e}"))?;
-        self.save_tokens(&tokens);
+        self.save_tokens(&tokens)?;
         Ok(())
     }
 
-    fn save_tokens(&self, tokens: &TokenResponse) {
+    fn save_tokens(&self, tokens: &TokenResponse) -> Result<(), String> {
         let merged_refresh = tokens
             .refresh_token
             .clone()
@@ -352,9 +364,12 @@ impl GDriveClient {
             "refresh_token": merged_refresh,
             "expires_in": tokens.expires_in.unwrap_or(3600),
         });
-        if let Err(e) = fs::write(&self.token_path, serde_json::to_string_pretty(&map).unwrap()) {
-            eprintln!("Cannot save token file: {e}");
-        }
+        fs::write(&self.token_path, serde_json::to_string_pretty(&map).unwrap())
+            .map_err(|e| format!(
+                "Cannot save token file at {}: {e}",
+                self.token_path.display()
+            ))?;
+        Ok(())
     }
 
     fn access_token(&self) -> Result<String, String> {

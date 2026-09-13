@@ -704,13 +704,14 @@ fn main() {
     {
         let core = Arc::clone(&core);
         let rx = Arc::clone(&rx);
+        let w = window.as_weak();
         std::thread::spawn(move || loop {
             // Drain all pending commands (each may take a while: uploads run
             // here, never on the UI thread).
             loop {
                 let next = rx.lock().unwrap().try_recv();
                 match next {
-                    Ok(cmd) => run_command(&core, cmd),
+                    Ok(cmd) => run_command(&core, cmd, &w),
                     Err(_) => break,
                 }
             }
@@ -1074,7 +1075,7 @@ fn collect_settings(ui: &MainWindow) -> AppConfig {
     cfg
 }
 
-fn run_command(core: &Arc<BackupCore>, cmd: Command) {
+fn run_command(core: &Arc<BackupCore>, cmd: Command, w: &slint::Weak<MainWindow>) {
     match cmd {
         Command::ForceCheck => {
             core.log.add(&i18n::t("force-check-started"));
@@ -1099,21 +1100,37 @@ fn run_command(core: &Arc<BackupCore>, cmd: Command) {
                 .as_ref()
                 .and_then(|g| g.credentials_path.clone())
                 .unwrap_or_else(|| "./credentials.json".into());
-            match GDriveClient::new(&creds_path) {
+            let (state, status) = match GDriveClient::new(&creds_path) {
                 Ok(client) => match client.authorize() {
                     Ok(()) => {
                         core.log.add(&i18n::t("gdrive-authorized"));
-                        let c = cfg;
+                        let c = *cfg;
                         c.save();
-                        *core.config.lock().unwrap() = *c;
+                        *core.config.lock().unwrap() = c.clone();
+                        (gdrive_state_for(&c), i18n::t("gdrive-authorized"))
                     }
-                    Err(e) => core.log.add(&format!(
-                        "❌ {}: {e}",
-                        i18n::t("authorize-failed")
-                    )),
+                    Err(e) => {
+                        let msg = format!("❌ {}: {e}", i18n::t("authorize-failed"));
+                        core.log.add(&msg.clone());
+                        (gdrive_state_for(&cfg), msg)
+                    }
                 },
-                Err(e) => core.log.add(&format!("❌ {e}")),
-            }
+                Err(e) => {
+                    let msg = format!("❌ {e}");
+                    core.log.add(&msg.clone());
+                    (gdrive_state_for(&cfg), msg)
+                }
+            };
+            // Update the settings dialog from the UI thread: refresh the
+            // Google Drive status box and replace the "authorize-wait" label
+            // with the real result (success or the actual error).
+            let w = w.clone();
+            let _ = slint::invoke_from_event_loop(move || {
+                if let Some(ui) = w.upgrade() {
+                    ui.set_gdrive_state(state);
+                    ui.set_settings_status(status.into());
+                }
+            });
         }
         Command::SetLanguage(lang) => {
             i18n::set_language(&lang);

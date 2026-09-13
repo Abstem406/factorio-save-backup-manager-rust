@@ -66,15 +66,49 @@ impl Default for AppConfig {
     }
 }
 
+/// Probe whether a directory is writable (cheap create/remove test).
+fn dir_is_writable(dir: &std::path::Path) -> bool {
+    let probe = dir.join(".write_probe_tmp");
+    match fs::File::create(&probe) {
+        Ok(_) => {
+            let _ = fs::remove_file(&probe);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+/// Directory for runtime data files (config.json, gdrive-token.json).
+///
+/// Portable default: next to the executable. Inside an AppImage (or any
+/// non-writable install dir) that is a read-only squashfs, so fall back to
+/// the XDG data dir (~/.local/share/factorio-save-backup-manager-rust).
+pub fn data_dir() -> PathBuf {
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(dir) = exe.parent()
+    {
+        let inside_appimage = dir.components().any(|c| {
+            c.as_os_str().to_string_lossy().starts_with("appimage_extracted_")
+        });
+        if !inside_appimage && dir_is_writable(dir) {
+            return dir.to_path_buf();
+        }
+    }
+    let base = std::env::var("XDG_DATA_HOME")
+        .ok()
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+        .or_else(dirs::data_dir)
+        .unwrap_or_else(|| PathBuf::from("."));
+    let dir = base.join("factorio-save-backup-manager-rust");
+    let _ = fs::create_dir_all(&dir);
+    dir
+}
+
 impl AppConfig {
     pub fn save_path() -> PathBuf {
-        // Store the config next to the executable (portable, like the JS version stores it in cwd)
-        if let Ok(exe) = std::env::current_exe() {
-            if let Some(dir) = exe.parent() {
-                return dir.join("config.json");
-            }
-        }
-        PathBuf::from("config.json")
+        // Writable location (next to the exe, or XDG data dir inside AppImages).
+        data_dir().join("config.json")
     }
 
     pub fn load() -> Option<Self> {

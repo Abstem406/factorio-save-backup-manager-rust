@@ -5,6 +5,7 @@
 # AppImage build dirs
 /.appimage-build
 /.build-assets
+/.build-assets
 
 # Runtime secrets & local settings (stored next to the executable)
 credentials.json
