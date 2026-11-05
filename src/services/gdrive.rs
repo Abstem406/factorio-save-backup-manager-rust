@@ -202,7 +202,10 @@ impl GDriveClient {
     /// Full authorization: open browser, run a tiny local server that also
     /// serves the callback page (with the Factorio images embedded as data
     /// URIs), capture the OAuth redirect code, then exchange it for tokens.
-    pub fn authorize(&self) -> Result<(), String> {
+    ///
+    /// `log` receives user-facing progress/fallback messages (the app has no
+    /// console on Windows, so printing to stdout would be invisible there).
+    pub fn authorize(&self, log: impl Fn(&str)) -> Result<(), String> {
         // 1. Pick a free local port for both the redirect and the static server.
         let listener = std::net::TcpListener::bind("127.0.0.1:0")
             .map_err(|e| format!("Cannot open local port for OAuth: {e}"))?;
@@ -217,11 +220,14 @@ impl GDriveClient {
             urlencode(SCOPES),
         );
 
-        if open_in_browser(&auth_url).is_err() {
-            println!("\nOpen this URL in your browser to authorize:\n\n  {auth_url}\n");
+        if let Err(e) = open_in_browser(&auth_url) {
+            log(&format!(
+                "⚠️ Could not open the browser ({e}). Open this URL manually:"
+            ));
+            log(&auth_url);
         }
 
-        println!("Waiting for authorization on {redirect_uri} ...");
+        log(&format!("Waiting for authorization on {redirect_uri} ..."));
 
         // 3. Accept exactly one request containing ?code= (3-minute timeout so
         //    an abandoned browser flow cannot block the worker thread forever).
@@ -626,8 +632,18 @@ pub fn urlencode(s: &str) -> String {
 pub fn open_in_browser(url: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+        // Pass cmd.exe one already-quoted command line via `raw_arg`.
+        // `Command::args` leaves arguments without whitespace unquoted, and
+        // cmd.exe treats the `&` separators in the OAuth URL as command
+        // separators. That split the URL and broke "Authorize Google Drive"
+        // on Windows (the browser either never opened or opened a truncated,
+        // invalid URL). Quoting the URL keeps it as a single argument.
         std::process::Command::new("cmd")
-            .args(["/C", "start", "", url])
+            .raw_arg(format!("/C start \"\" \"{url}\""))
+            .creation_flags(CREATE_NO_WINDOW)
             .spawn()
             .map_err(|e| e.to_string())?;
         return Ok(());

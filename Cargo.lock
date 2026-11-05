@@ -1321,7 +1321,7 @@ dependencies = [
 
 [[package]]
 name = "factorio-save-backup-manager-rust"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "base64 0.23.1",
  "chrono",

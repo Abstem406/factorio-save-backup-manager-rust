@@ -4,6 +4,11 @@
 # Usage: ./release-linux.sh
 set -euo pipefail
 
+# linuxdeploy itself is an AppImage. On CI runners (and other sandboxes)
+# FUSE mounts are often unavailable, so let the AppImage runtime extract
+# itself instead of failing to mount.
+export APPIMAGE_EXTRACT_AND_RUN=1
+
 BIN_NAME="factorio-save-backup-manager-rust"
 DIST_DIR="dist"
 BUILD_DIR=".appimage-build"
@@ -78,7 +83,7 @@ EOF
 LINUXDEPLOY="$BUILD_DIR/linuxdeploy-x86_64.AppImage"
 if [ ! -f "$LINUXDEPLOY" ]; then
   echo "==> Downloading linuxdeploy"
-  curl -sL -o "$LINUXDEPLOY" \
+  curl -fsSL --retry 3 -o "$LINUXDEPLOY" \
     "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
   chmod +x "$LINUXDEPLOY"
 fi

@@ -1160,7 +1160,7 @@ fn run_command(core: &Arc<BackupCore>, cmd: Command, w: &slint::Weak<MainWindow>
                 .filter(|p| !p.trim().is_empty())
                 .unwrap_or_else(|| "credentials.json".into());
             let (state, status) = match GDriveClient::new(&creds_path) {
-                Ok(client) => match client.authorize() {
+                Ok(client) => match client.authorize(|msg| core.log.add(msg)) {
                     Ok(()) => {
                         core.log.add(&i18n::t("gdrive-authorized"));
                         let c = *cfg;
