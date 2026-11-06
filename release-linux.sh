@@ -90,6 +90,9 @@ fi
 
 echo "==> Running linuxdeploy (bundles shared libraries)"
 chmod +x "$APPDIR/usr/bin/$BIN_NAME"
+# linuxdeploy writes the AppImage directly to $DIST_DIR; create it first so
+# the build also works on a clean checkout (CI) where dist/ does not exist yet.
+mkdir -p "$DIST_DIR"
 OUTPUT="$DIST_DIR/$BIN_NAME-$VERSION-x86_64.AppImage" \
   "$LINUXDEPLOY" \
   --appdir "$APPDIR" \
